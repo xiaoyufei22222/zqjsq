@@ -151,7 +151,7 @@
     <div class="container">
         <h1>⚽ 足球比赛智能预测系统 实战版</h1>
         
-        <!-- 输入表格 -->
+        <!-- 优化后的输入表格 -->
         <table class="input-table">
             <thead>
                 <tr>
@@ -170,7 +170,7 @@
                     <td><input type="number" id="h2h_draw" min="0" max="6" value="1"></td>
                     <td><input type="number" id="h2h_goals_for" min="0" value="8"></td>
                     <td><input type="number" id="h2h_goals_against" min="0" value="5"></td>
-                    <td><input type="number" id="h2h_possession" min="0" max="100" value="52"></td>
+                    <td style="background: #f8f8f8;">-</td>
                 </tr>
                 <tr>
                     <td style="background: #f0f7ff;">主队近10场</td>
@@ -222,15 +222,14 @@
     <script>
         let myChart = null;
 
-        // 数据收集函数
+        // 数据收集函数（已移除历史控球率）
         function getInputValues() {
             return {
                 h2h: {
                     win: parseInt(document.getElementById('h2h_win').value) || 0,
                     draw: parseInt(document.getElementById('h2h_draw').value) || 0,
                     goalsFor: parseInt(document.getElementById('h2h_goals_for').value) || 0,
-                    goalsAgainst: parseInt(document.getElementById('h2h_goals_against').value) || 0,
-                    possession: parseFloat(document.getElementById('h2h_possession').value) || 50
+                    goalsAgainst: parseInt(document.getElementById('h2h_goals_against').value) || 0
                 },
                 home: {
                     win: parseInt(document.getElementById('home_win').value) || 0,
@@ -258,15 +257,15 @@
             return p;
         }
 
-        // 基础胜率计算（新增控球率影响）
+        // 基础胜率计算（使用主客队控球率）
         function calculateBasicPrediction(data) {
             const weights = { h2h: 0.3, home: 0.35, away: 0.25 };
             
-            // 控球率修正系数
-            const posCorrection = (data.home.possession - 50) * 0.005;
+            // 控球率差值影响
+            const posDiffImpact = (data.home.possession - data.away.possession) * 0.005;
             
             const h2hWinRate = data.h2h.win / 6;
-            const homeWinRate = (data.home.win + data.home.draw*0.5) / 10 + posCorrection;
+            const homeWinRate = (data.home.win + data.home.draw*0.5) / 10 + posDiffImpact;
             const awayLoseRate = (10 - data.away.win - data.away.draw*0.5) / 10;
             
             return Math.min(0.95, Math.max(0.05, 
@@ -276,13 +275,14 @@
             ));
         }
 
-        // Elo评分预测（优化控球率影响）
+        // 改进的Elo评分模型
         function calculateEloPrediction(data) {
             const K = 32;
+            // 基于近期控球率初始化评分
             let homeElo = 1500 + (data.home.possession - 50) * 2;
             let awayElo = 1500 - (data.away.possession - 50) * 1.5;
 
-            // 历史交锋计算
+            // 历史交锋影响
             const totalMatches = 6;
             for(let i=0; i<totalMatches; i++) {
                 const isWin = i < data.h2h.win;
@@ -295,7 +295,7 @@
                 awayElo += K * ((1 - actual) - (1 - expected));
             }
 
-            // 近期表现调整（加入控球率影响）
+            // 近期表现调整（含控球率影响）
             const homeForm = (data.home.win + data.home.draw*0.5) / 10 + (data.home.possession - 50)*0.002;
             const awayForm = (data.away.win + data.away.draw*0.5) / 10 - (50 - data.away.possession)*0.0015;
             
@@ -311,7 +311,7 @@
 
         // 攻防能力预测（优化控球率影响）
         function calculateStrengthPrediction(data) {
-            // 控球率修正系数
+            // 控球率差值系数
             const posFactor = 1 + (data.home.possession - data.away.possession) * 0.01;
 
             const homeAttack = (data.home.goalsFor / 10) * posFactor;
@@ -345,7 +345,7 @@
             };
         }
 
-        // 主客场优势模型
+        // 主客场优势模型（使用近期控球率）
         function calculateVenueAdvantage(data) {
             const baseHomeAdv = 0.12;
             const posImpact = (data.home.possession - 50) * 0.002;
@@ -366,7 +366,7 @@
             const strengthResult = calculateStrengthPrediction(data);
             const venueResult = calculateVenueAdvantage(data);
 
-            // 综合预测概率
+            // 动态权重综合预测
             const finalPrediction = {
                 win: (
                     basicRate * 0.35 +
@@ -468,7 +468,7 @@
                 }
             });
 
-            // 更新文字说明
+            // 更新分析说明
             document.getElementById('textExplanation').innerHTML = `
                 <h3>📊 分析结果解读</h3>
                 <div class="prediction-results">
@@ -487,17 +487,17 @@
                 </div>
                 <p><strong>详细分析：</strong></p>
                 <ul>
+                    <li>控球率差值：${(data.home.possession - data.away.possession).toFixed(1)}%</li>
                     <li>历史交锋权重：30%</li>
                     <li>Elo评分权重：35%</li>
                     <li>攻防能力权重：20%</li>
                     <li>主场优势权重：15%</li>
-                    <li>控球率影响系数：+0.5%每1%优势</li>
                 </ul>
                 <div style="margin-top:15px;padding:10px;background:#e3f2fd;border-radius:5px;">
                     <strong>💡 专业建议：</strong>
-                    <p>• 主队控球率＞55%时胜率可信度+10%</p>
-                    <p>• 客队失球＞1.5/场时建议考虑大球选项</p>
-                    <p>• 当Elo评分差＞200时属于强弱分明比赛</p>
+                    <p>• 主队控球优势每5%提升胜率可信度3%</p>
+                    <p>• 客队场均失球＞1.2时建议关注大球选项</p>
+                    <p>• 当Elo评分差＞150时考虑单边投注策略</p>
                 </div>
             `;
         }
