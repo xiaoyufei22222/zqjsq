@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>足球比赛智能预测系统 实战版</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #2196F3;
+            --secondary: #4CAF50;
+            --text: #333;
+            --bg: #f8f9fa;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background-color: var(--bg);
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            margin: 30px 0;
+            font-size: 2.2em;
+        }
+        .input-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .input-table th,
+        .input-table td {
+            padding: 15px;
+            text-align: center;
+            border: 1px solid #eee;
+        }
+        .input-table th {
+            background: var(--primary);
+            color: white;
+            font-weight: normal;
+        }
+        .input-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        input {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 14px;
+        }
+        button {
+            background: var(--primary);
+            color: white;
+            padding: 12px 40px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            display: block;
+            margin: 30px auto;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+        .result-section {
+            display: grid;
+            gap: 30px;
+            margin: 40px 0;
+        }
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .explanation {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h3 {
+            color: var(--primary);
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+        .prediction-results {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .pred-card {
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .win { background: #e8f5e9; color: #2e7d32; }
+        .draw { background: #fff3e0; color: #ef6c00; }
+        .lose { background: #ffebee; color: #c62828; }
+        .prob {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 10px;
+            }
+            .input-table {
+                display: block;
+                overflow-x: auto;
+            }
+            input {
+                width: 70px;
+                padding: 6px;
+            }
+            button {
+                width: 100%;
+                padding: 15px;
+            }
+            .prediction-results {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚽ 足球比赛智能预测系统 实战版</h1>
+        
+        <!-- 输入表格 -->
+        <table class="input-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>胜场次数</th>
+                    <th>平局次数</th>
+                    <th>进球总数</th>
+                    <th>失球总数</th>
+                    <th>控球率%</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="background: #f0f7ff;">历史交锋（近6场）</td>
+                    <td><input type="number" id="h2h_win" min="0" max="6" value="2"></td>
+                    <td><input type="number" id="h2h_draw" min="0" max="6" value="1"></td>
+                    <td><input type="number" id="h2h_goals_for" min="0" value="8"></td>
+                    <td><input type="number" id="h2h_goals_against" min="0" value="5"></td>
+                    <td><input type="number" id="h2h_possession" min="0" max="100" value="52"></td>
+                </tr>
+                <tr>
+                    <td style="background: #f0f7ff;">主队近10场</td>
+                    <td><input type="number" id="home_win" min="0" max="10" value="6"></td>
+                    <td><input type="number" id="home_draw" min="0" max="10" value="2"></td>
+                    <td><input type="number" id="home_goals_for" min="0" value="15"></td>
+                    <td><input type="number" id="home_goals_against" min="0" value="7"></td>
+                    <td><input type="number" id="home_possession" min="0" max="100" value="58"></td>
+                </tr>
+                <tr>
+                    <td style="background: #f0f7ff;">客队近10场</td>
+                    <td><input type="number" id="away_win" min="0" max="10" value="4"></td>
+                    <td><input type="number" id="away_draw" min="0" max="10" value="3"></td>
+                    <td><input type="number" id="away_goals_for" min="0" value="12"></td>
+                    <td><input type="number" id="away_goals_against" min="0" value="9"></td>
+                    <td><input type="number" id="away_possession" min="0" max="100" value="47"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <button onclick="calculate()">开始智能分析</button>
+
+        <!-- 结果展示区 -->
+        <div class="result-section">
+            <div class="chart-container">
+                <canvas id="resultChart"></canvas>
+            </div>
+            <div class="explanation" id="textExplanation">
+                <h3>📝 分析结果说明</h3>
+                <div class="prediction-results">
+                    <div class="pred-card win">
+                        <h4>主队胜</h4>
+                        <div class="prob">0.0%</div>
+                    </div>
+                    <div class="pred-card draw">
+                        <h4>平局</h4>
+                        <div class="prob">0.0%</div>
+                    </div>
+                    <div class="pred-card lose">
+                        <h4>客队胜</h4>
+                        <div class="prob">0.0%</div>
+                    </div>
+                </div>
+                <p>等待数据输入...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let myChart = null;
+
+        // 数据收集函数
+        function getInputValues() {
+            return {
+                h2h: {
+                    win: parseInt(document.getElementById('h2h_win').value) || 0,
+                    draw: parseInt(document.getElementById('h2h_draw').value) || 0,
+                    goalsFor: parseInt(document.getElementById('h2h_goals_for').value) || 0,
+                    goalsAgainst: parseInt(document.getElementById('h2h_goals_against').value) || 0,
+                    possession: parseFloat(document.getElementById('h2h_possession').value) || 50
+                },
+                home: {
+                    win: parseInt(document.getElementById('home_win').value) || 0,
+                    draw: parseInt(document.getElementById('home_draw').value) || 0,
+                    goalsFor: parseInt(document.getElementById('home_goals_for').value) || 0,
+                    goalsAgainst: parseInt(document.getElementById('home_goals_against').value) || 0,
+                    possession: parseFloat(document.getElementById('home_possession').value) || 50
+                },
+                away: {
+                    win: parseInt(document.getElementById('away_win').value) || 0,
+                    draw: parseInt(document.getElementById('away_draw').value) || 0,
+                    goalsFor: parseInt(document.getElementById('away_goals_for').value) || 0,
+                    goalsAgainst: parseInt(document.getElementById('away_goals_against').value) || 0,
+                    possession: parseFloat(document.getElementById('away_possession').value) || 50
+                }
+            };
+        }
+
+        // 泊松分布计算
+        function poisson(k, lambda) {
+            let p = Math.exp(-lambda);
+            for (let i = 1; i <= k; i++) {
+                p *= lambda / i;
+            }
+            return p;
+        }
+
+        // 基础胜率计算（新增控球率影响）
+        function calculateBasicPrediction(data) {
+            const weights = { h2h: 0.3, home: 0.35, away: 0.25 };
+            
+            // 控球率修正系数
+            const posCorrection = (data.home.possession - 50) * 0.005;
+            
+            const h2hWinRate = data.h2h.win / 6;
+            const homeWinRate = (data.home.win + data.home.draw*0.5) / 10 + posCorrection;
+            const awayLoseRate = (10 - data.away.win - data.away.draw*0.5) / 10;
+            
+            return Math.min(0.95, Math.max(0.05, 
+                h2hWinRate*weights.h2h + 
+                homeWinRate*weights.home + 
+                awayLoseRate*weights.away
+            ));
+        }
+
+        // Elo评分预测（优化控球率影响）
+        function calculateEloPrediction(data) {
+            const K = 32;
+            let homeElo = 1500 + (data.home.possession - 50) * 2;
+            let awayElo = 1500 - (data.away.possession - 50) * 1.5;
+
+            // 历史交锋计算
+            const totalMatches = 6;
+            for(let i=0; i<totalMatches; i++) {
+                const isWin = i < data.h2h.win;
+                const isDraw = i < data.h2h.win + data.h2h.draw;
+                
+                const actual = isWin ? 1 : (isDraw ? 0.5 : 0);
+                const expected = 1 / (1 + Math.pow(10, (awayElo - homeElo)/400));
+                
+                homeElo += K * (actual - expected);
+                awayElo += K * ((1 - actual) - (1 - expected));
+            }
+
+            // 近期表现调整（加入控球率影响）
+            const homeForm = (data.home.win + data.home.draw*0.5) / 10 + (data.home.possession - 50)*0.002;
+            const awayForm = (data.away.win + data.away.draw*0.5) / 10 - (50 - data.away.possession)*0.0015;
+            
+            homeElo *= 1 + homeForm*0.2;
+            awayElo *= 1 - awayForm*0.15;
+
+            return {
+                homeElo: Math.round(homeElo),
+                awayElo: Math.round(awayElo),
+                homeWinProb: 1 / (1 + Math.pow(10, (awayElo - homeElo)/400))
+            };
+        }
+
+        // 攻防能力预测（优化控球率影响）
+        function calculateStrengthPrediction(data) {
+            // 控球率修正系数
+            const posFactor = 1 + (data.home.possession - data.away.possession) * 0.01;
+
+            const homeAttack = (data.home.goalsFor / 10) * posFactor;
+            const homeDefense = (data.home.goalsAgainst / 10) / posFactor;
+            const awayAttack = (data.away.goalsFor / 10) / posFactor;
+            const awayDefense = (data.away.goalsAgainst / 10) * posFactor;
+
+            const lambda = (homeAttack + awayDefense) / 2 * 1.1;
+            const mu = (awayAttack + homeDefense) / 2;
+
+            let winProb = 0, drawProb = 0, loseProb = 0;
+            const maxGoals = 6;
+
+            for (let i = 0; i <= maxGoals; i++) {
+                for (let j = 0; j <= maxGoals; j++) {
+                    const prob = poisson(i, lambda) * poisson(j, mu);
+                    if (i > j) winProb += prob;
+                    if (i === j) drawProb += prob;
+                    if (i < j) loseProb += prob;
+                }
+            }
+
+            // 归一化处理
+            const total = winProb + drawProb + loseProb;
+            return {
+                home: lambda,
+                away: mu,
+                winProb: winProb / total,
+                drawProb: drawProb / total,
+                loseProb: loseProb / total
+            };
+        }
+
+        // 主客场优势模型
+        function calculateVenueAdvantage(data) {
+            const baseHomeAdv = 0.12;
+            const posImpact = (data.home.possession - 50) * 0.002;
+            const defenseImpact = (data.away.goalsAgainst / 10) * 0.05;
+
+            return {
+                winBoost: baseHomeAdv + posImpact - defenseImpact,
+                drawBoost: 0.5 - Math.abs(posImpact) * 0.3
+            };
+        }
+
+        // 核心计算逻辑
+        function calculate() {
+            const data = getInputValues();
+            
+            const basicRate = calculateBasicPrediction(data);
+            const eloResult = calculateEloPrediction(data);
+            const strengthResult = calculateStrengthPrediction(data);
+            const venueResult = calculateVenueAdvantage(data);
+
+            // 综合预测概率
+            const finalPrediction = {
+                win: (
+                    basicRate * 0.35 +
+                    eloResult.homeWinProb * 0.35 +
+                    strengthResult.winProb * 0.2 +
+                    venueResult.winBoost * 0.1
+                ) * 100,
+
+                draw: (
+                    strengthResult.drawProb * 0.4 +
+                    (1 - Math.abs(eloResult.homeWinProb - 0.5)) * 0.3 +
+                    venueResult.drawBoost * 0.3
+                ) * 100,
+
+                lose: (
+                    strengthResult.loseProb * 0.4 +
+                    (1 - Math.abs(1 - eloResult.homeWinProb - 0.5)) * 0.3 +
+                    (1 - venueResult.winBoost) * 0.3
+                ) * 100
+            };
+
+            // 归一化处理
+            const total = finalPrediction.win + finalPrediction.draw + finalPrediction.lose;
+            finalPrediction.win = (finalPrediction.win / total) * 100;
+            finalPrediction.draw = (finalPrediction.draw / total) * 100;
+            finalPrediction.lose = (finalPrediction.lose / total) * 100;
+
+            updateChart({
+                basic: basicRate,
+                elo: eloResult,
+                strength: strengthResult,
+                venue: venueResult,
+                final: finalPrediction
+            });
+        }
+
+        // 更新图表和说明
+        function updateChart(results) {
+            const ctx = document.getElementById('resultChart').getContext('2d');
+            
+            if(myChart) myChart.destroy();
+
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['综合胜率', 'Elo预测', '攻防预期', '主场加成'],
+                    datasets: [{
+                        label: '主队优势',
+                        data: [
+                            results.basic*100,
+                            results.elo.homeWinProb*100,
+                            results.strength.home*10,
+                            results.venue.winBoost*100
+                        ],
+                        backgroundColor: 'rgba(33, 150, 243, 0.8)',
+                        borderColor: 'rgba(33, 150, 243, 1)',
+                        borderWidth: 1
+                    },{
+                        label: '客队优势',
+                        data: [
+                            (1 - results.basic)*100,
+                            (1 - results.elo.homeWinProb)*100,
+                            results.strength.away*10,
+                            (1 - results.venue.winBoost)*100
+                        ],
+                        backgroundColor: 'rgba(76, 175, 80, 0.8)',
+                        borderColor: 'rgba(76, 175, 80, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '百分比 / 进球期望值'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (context.dataIndex === 2) {
+                                        return `${label}: ${context.raw.toFixed(1)} 进球期望`;
+                                    }
+                                    return `${label}: ${context.raw.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 更新文字说明
+            document.getElementById('textExplanation').innerHTML = `
+                <h3>📊 分析结果解读</h3>
+                <div class="prediction-results">
+                    <div class="pred-card win">
+                        <h4>主队胜</h4>
+                        <div class="prob">${results.final.win.toFixed(1)}%</div>
+                    </div>
+                    <div class="pred-card draw">
+                        <h4>平局</h4>
+                        <div class="prob">${results.final.draw.toFixed(1)}%</div>
+                    </div>
+                    <div class="pred-card lose">
+                        <h4>客队胜</h4>
+                        <div class="prob">${results.final.lose.toFixed(1)}%</div>
+                    </div>
+                </div>
+                <p><strong>详细分析：</strong></p>
+                <ul>
+                    <li>历史交锋权重：30%</li>
+                    <li>Elo评分权重：35%</li>
+                    <li>攻防能力权重：20%</li>
+                    <li>主场优势权重：15%</li>
+                    <li>控球率影响系数：+0.5%每1%优势</li>
+                </ul>
+                <div style="margin-top:15px;padding:10px;background:#e3f2fd;border-radius:5px;">
+                    <strong>💡 专业建议：</strong>
+                    <p>• 主队控球率＞55%时胜率可信度+10%</p>
+                    <p>• 客队失球＞1.5/场时建议考虑大球选项</p>
+                    <p>• 当Elo评分差＞200时属于强弱分明比赛</p>
+                </div>
+            `;
+        }
+
+        // 窗口大小变化时重置图表
+        window.addEventListener('resize', () => {
+            if(myChart) myChart.resize();
+        });
+    </script>
+</body>
+</html>
